@@ -59,26 +59,6 @@ local circleHidden = false
 local JUMP_VAL = 120
 local SPEED_VAL = 50
 local rainbowOn = true
-local rainbowHue = 0
-local infAmmoOn = false
-local rapidFireOn = false
-local killAllOn = false
-local autoFarmOn = false
-local killTarget = nil
-local lastEnemySeen = 0
-local lastQueueAttempt = 0
-local skeletonOn = false
-local distanceOn = false
-local chamsOn = false
-local fullbrightOn = false
-local fovChangerOn = false
-local crosshairOn = false
-local FOV_CHANGER_VAL = 100
-local chamsMap = {}
-local savedBright = nil
-local savedAmbient = nil
-local savedClock = nil
-local savedFogEnd = nil
 local CONFIG_FILE = "pgb_rivals_config.json"
 local function getConfig()
     return {
@@ -100,17 +80,6 @@ local function getConfig()
         jumpval = JUMP_VAL,
         speedval = SPEED_VAL,
         rainbow = rainbowOn,
-        infammo = infAmmoOn,
-        rapidfire = rapidFireOn,
-        killall = killAllOn,
-        autofarm = autoFarmOn,
-        skeleton = skeletonOn,
-        distance = distanceOn,
-        chams = chamsOn,
-        fullbright = fullbrightOn,
-        fovchanger = fovChangerOn,
-        fovchangerval = FOV_CHANGER_VAL,
-        crosshair = crosshairOn,
     }
 end
 local function saveConfig()
@@ -148,17 +117,6 @@ local function loadConfig()
     if cfg.jumpval ~= nil then JUMP_VAL = cfg.jumpval end
     if cfg.speedval ~= nil then SPEED_VAL = cfg.speedval end
     if cfg.rainbow ~= nil then rainbowOn = cfg.rainbow end
-    if cfg.infammo ~= nil then infAmmoOn = cfg.infammo end
-    if cfg.rapidfire ~= nil then rapidFireOn = cfg.rapidfire end
-    if cfg.killall ~= nil then killAllOn = cfg.killall end
-    if cfg.autofarm ~= nil then autoFarmOn = cfg.autofarm end
-    if cfg.skeleton ~= nil then skeletonOn = cfg.skeleton end
-    if cfg.distance ~= nil then distanceOn = cfg.distance end
-    if cfg.chams ~= nil then chamsOn = cfg.chams end
-    if cfg.fullbright ~= nil then fullbrightOn = cfg.fullbright end
-    if cfg.fovchanger ~= nil then fovChangerOn = cfg.fovchanger end
-    if cfg.fovchangerval ~= nil then FOV_CHANGER_VAL = cfg.fovchangerval end
-    if cfg.crosshair ~= nil then crosshairOn = cfg.crosshair end
 end
 loadConfig()
 local radarBg = Drawing.new("Circle")
@@ -180,14 +138,6 @@ for i = 1, 12 do
     dot.Color = Color3.fromRGB(255, 60, 60)
     dot.Visible = false
     radarDots[i] = dot
-end
-local crossLines = {}
-for i = 1, 4 do
-    local cl = Drawing.new("Line")
-    cl.Thickness = 2
-    cl.Color = Color3.fromRGB(255, 255, 255)
-    cl.Visible = false
-    crossLines[i] = cl
 end
 local mySpawnPos = nil
 local spawnPos = {}
@@ -356,72 +306,6 @@ local function getBestTarget()
         end
     end
     return best
-end
-local function getKillAllTarget()
-    local myChar = LocalPlayer.Character
-    if not myChar then return nil end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil end
-    local best = nil
-    local bestDist = math.huge
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local char = player.Character
-            if char then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                local head = char:FindFirstChild("Head")
-                if hum and head and hum.Health > 0 then
-                    if isEnemyPlayer(player) and canSee(head, myChar) then
-                        local d = (head.Position - myRoot.Position).Magnitude
-                        if d < bestDist then
-                            bestDist = d
-                            best = head
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return best
-end
-local function isKillTargetValid(head)
-    if not head or not head.Parent then return false end
-    local char = head.Parent
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return false end
-    local player = Players:GetPlayerFromCharacter(char)
-    if player == LocalPlayer then return false end
-    if player and not isEnemyPlayer(player) then return false end
-    local myChar = LocalPlayer.Character
-    if not myChar or not canSee(head, myChar) then return false end
-    return true
-end
-local function getJoinQueue()
-    local rs = game:GetService("ReplicatedStorage")
-    local remotes = rs:FindFirstChild("Remotes")
-    if not remotes then return nil end
-    local mm = remotes:FindFirstChild("Matchmaking")
-    if not mm then return nil end
-    return mm:FindFirstChild("JoinQueue")
-end
-local function queue5v5()
-    local jq = getJoinQueue()
-    if not jq then return end
-    pcall(function() jq:InvokeServer("5v5") end)
-end
-local function ensureFarmLoop()
-    if farmLoopRunning then return end
-    farmLoopRunning = true
-    task.spawn(function()
-        while autoFarmOn do
-            if os.clock() - lastEnemySeen > 10 and os.clock() - lastQueueAttempt > 5 then
-                lastQueueAttempt = os.clock()
-                task.spawn(function() pcall(queue5v5) end)
-            end
-            task.wait(3)
-        end
-        farmLoopRunning = false
-    end)
 end
 local function isTargetValid(head)
     if not head or not head.Parent then return false end
@@ -733,71 +617,7 @@ local function addESP(player)
     hpBar.Transparency = 1
     hpBar.Color = Color3.fromRGB(0, 255, 0)
     hpBar.Visible = false
-    local skel = {}
-    for i = 1, 5 do
-        local ln = Drawing.new("Line")
-        ln.Thickness = 2
-        ln.Color = Color3.fromRGB(255, 255, 255)
-        ln.Visible = false
-        skel[i] = ln
-    end
-    espDrawings[player] = {box = box, nameTag = nameTag, hpBar = hpBar, skel = skel}
-end
-local function setChams(player, char, on)
-    local h = chamsMap[player]
-    if not on then
-        if h then h:Destroy() chamsMap[player] = nil end
-        return
-    end
-    if h and h.Parent == char then return end
-    if h then h:Destroy() end
-    local nh = Instance.new("Highlight")
-    nh.FillColor = Color3.fromHSV(rainbowHue, 0.8, 1)
-    nh.OutlineColor = Color3.fromRGB(255, 255, 255)
-    nh.FillTransparency = 0.6
-    nh.OutlineTransparency = 0
-    nh.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    nh.Parent = char
-    chamsMap[player] = nh
-end
-local function updateSkeleton(player, char)
-    local d = espDrawings[player]
-    if not d or not d.skel then return end
-    local function part(...)
-        for _, n in ipairs({...}) do
-            local p = char:FindFirstChild(n)
-            if p then return p end
-        end
-        return nil
-    end
-    local head = char:FindFirstChild("Head")
-    local torso = part("UpperTorso", "Torso")
-    local la = part("LeftUpperArm", "Left Arm")
-    local ra = part("RightUpperArm", "Right Arm")
-    local ll = part("LeftUpperLeg", "Left Leg")
-    local rl = part("RightUpperLeg", "Right Leg")
-    local pts = {head, torso, la, ra, ll, rl}
-    local scr = {}
-    for i, p in ipairs(pts) do
-        if not p then scr[i] = nil else
-            local v, on = Camera:WorldToViewportPoint(p.Position)
-            if on then scr[i] = Vector2.new(v.X, v.Y) else scr[i] = nil end
-        end
-    end
-    local pairs_ = {{1, 2}, {2, 3}, {2, 4}, {2, 5}, {2, 6}}
-    for i, pr in ipairs(pairs_) do
-        local a = scr[pr[1]]
-        local b = scr[pr[2]]
-        local ln = d.skel[i]
-        if skeletonOn and a and b then
-            ln.From = a
-            ln.To = b
-            ln.Color = Color3.fromHSV(rainbowHue, 0.8, 1)
-            ln.Visible = true
-        else
-            ln.Visible = false
-        end
-    end
+    espDrawings[player] = {box = box, nameTag = nameTag, hpBar = hpBar}
 end
 local function removeESP(player)
     local d = espDrawings[player]
@@ -805,10 +625,6 @@ local function removeESP(player)
     d.box:Remove()
     d.nameTag:Remove()
     d.hpBar:Remove()
-    if d.skel then
-        for _, ln in ipairs(d.skel) do ln:Remove() end
-    end
-    if chamsMap[player] then chamsMap[player]:Destroy() chamsMap[player] = nil end
     espDrawings[player] = nil
 end
 local function reloadScript()
@@ -821,11 +637,6 @@ local function reloadScript()
     enemyAnchor = nil
     mySpawnPos = nil
     currentTarget = nil
-    killTarget = nil
-    for player, h in pairs(chamsMap) do
-        pcall(function() h:Destroy() end)
-    end
-    chamsMap = {}
     if fovCircle then fovCircle.Visible = false end
     local myChar = LocalPlayer.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -909,29 +720,7 @@ local function setFixLag(on)
     end
     saveConfig()
 end
-local function setFullbright(on)
-    fullbrightOn = on
-    if on then
-        savedBright = Lighting.Brightness
-        savedAmbient = Lighting.Ambient
-        savedClock = Lighting.ClockTime
-        savedFogEnd = Lighting.FogEnd
-        Lighting.Brightness = 2
-        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-        Lighting.ClockTime = 14
-        Lighting.FogEnd = 100000
-        Lighting.GlobalShadows = false
-    else
-        if savedBright ~= nil then Lighting.Brightness = savedBright end
-        if savedAmbient ~= nil then Lighting.Ambient = savedAmbient end
-        if savedClock ~= nil then Lighting.ClockTime = savedClock end
-        if savedFogEnd ~= nil then Lighting.FogEnd = savedFogEnd end
-        Lighting.GlobalShadows = true
-    end
-    saveConfig()
-end
 if fixLagOn then setFixLag(true) end
-if fullbrightOn then setFullbright(true) end
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 local menuGui = Instance.new("ScreenGui")
 menuGui.Name = "PhamGiaBao"
@@ -940,9 +729,9 @@ menuGui.IgnoreGuiInset = true
 menuGui.DisplayOrder = 10
 menuGui.Parent = playerGui
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 600, 0, 360)
-mainFrame.Position = UDim2.new(0.5, -300, 0.5, -180)
-mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+mainFrame.Size = UDim2.new(0, 560, 0, 340)
+mainFrame.Position = UDim2.new(0.5, -280, 0.5, -170)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = menuGui
 local mainCorner = Instance.new("UICorner")
@@ -955,7 +744,7 @@ mainStroke.Parent = mainFrame
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, 0, 0, 50)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Pham Gia Bao  -  Rivals"
+titleLabel.Text = "Pham Gia Bao"
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextSize = 22
@@ -992,7 +781,7 @@ tabLayout.Padding = UDim.new(0, 6)
 tabLayout.Parent = tabBar
 local tabFrames = {}
 local tabBtns = {}
-local currentTab = "Main"
+local currentTab = "Combat"
 local activeTabBtn = nil
 local rainbowBtns = {}
 local function showTab(name)
@@ -1010,12 +799,12 @@ local function showTab(name)
         end
     end
 end
-local tabOrder = {"Main", "World", "ESP", "Visuals", "Character", "Misc", "Setting"}
+local tabOrder = {"Combat", "Visual", "Di Chuyen", "Setting"}
 for _, tName in ipairs(tabOrder) do
     local tabBtn = Instance.new("TextButton")
-    tabBtn.Size = UDim2.new(0, 76, 0, 36)
+    tabBtn.Size = UDim2.new(0, 130, 0, 36)
     tabBtn.Font = Enum.Font.GothamBold
-    tabBtn.TextSize = 13
+    tabBtn.TextSize = 15
     tabBtn.Text = tName
     tabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
     tabBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
@@ -1160,46 +949,11 @@ local function makeSlider(parent, name, minVal, maxVal, getVal, setVal, fmt)
     refresh()
     return frame
 end
-local gunModOrig = {}
-local gunModRunning = false
-local function findGunTables()
-    local out = {}
-    local rs = game:GetService("ReplicatedStorage")
-    local lp = game:GetService("Players").LocalPlayer
-    local mod = rs:FindFirstChild("ItemLibrary")
-    if not mod then
-        local mods = rs:FindFirstChild("Modules")
-        if mods then mod = mods:FindFirstChild("ItemLibrary") end
-    end
-    if not mod then mod = rs:FindFirstChild("ItemLibrary", true) end
-    if not mod and lp then
-        local ps = lp:FindFirstChild("PlayerScripts")
-        if ps then mod = ps:FindFirstChild("ItemLibrary", true) end
-    end
-    if not mod or not mod:IsA("ModuleScript") then return out end
-    local ok, lib = pcall(require, mod)
-    if not ok or type(lib) ~= "table" then return out end
-    local seen = {}
-    local function walk(t, depth)
-        if depth > 4 or type(t) ~= "table" or seen[t] then return end
-        seen[t] = true
-        if type(t.MaxAmmo) == "number" or type(t.ShootCooldown) == "number" then
-            table.insert(out, t)
-            return
-        end
-        for _, v in pairs(t) do
-            if type(v) == "table" then walk(v, depth + 1) end
-        end
-    end
-    walk(lib, 0)
-    return out
-end
 local fovSliderFrame = nil
-local fovChangerSliderFrame = nil
 local aimSliderFrame = nil
 local jumpSliderFrame = nil
 local speedSliderFrame = nil
-makeToggle(tabFrames["Main"], "Aimbot", function() return aimbotOn end, function(v)
+makeToggle(tabFrames["Combat"], "Aimbot", function() return aimbotOn end, function(v)
     if aimbotOn and aimSliderFrame and not aimSliderFrame.Visible then
         aimSliderFrame.Visible = true
         return
@@ -1207,42 +961,14 @@ makeToggle(tabFrames["Main"], "Aimbot", function() return aimbotOn end, function
     aimbotOn = v
     if aimSliderFrame then aimSliderFrame.Visible = v end
 end)
-aimSliderFrame = makeSlider(tabFrames["Main"], "Aimbot", 0, 100, function() return AIM_SMOOTH * 100 end, function(v) AIM_SMOOTH = v / 100 end, function(v) return math.floor(v) .. "%" end)
+aimSliderFrame = makeSlider(tabFrames["Combat"], "Aimbot", 0, 100, function() return AIM_SMOOTH * 100 end, function(v) AIM_SMOOTH = v / 100 end, function(v) return math.floor(v) .. "%" end)
 aimSliderFrame.Visible = aimbotOn
-makeToggle(tabFrames["Main"], "Triggerbot", function() return triggerOn end, function(v) triggerOn = v end)
-makeToggle(tabFrames["Main"], "Hitbox", function() return hitboxOn end, function(v) setHitbox(v) end)
-makeToggle(tabFrames["Main"], "Auto Switch", function() return autoSwitchOn end, function(v) autoSwitchOn = v end)
-makeToggle(tabFrames["Main"], "Infinite Ammo", function() return infAmmoOn end, function(v)
-    infAmmoOn = v
-    task.spawn(function() pcall(applyGunMods) end)
-    if v then ensureGunModLoop() end
-end)
-makeToggle(tabFrames["Main"], "Rapid Fire", function() return rapidFireOn end, function(v)
-    rapidFireOn = v
-    task.spawn(function() pcall(applyGunMods) end)
-    if v then ensureGunModLoop() end
-end)
-makeToggle(tabFrames["Main"], "Kill All", function() return killAllOn end, function(v) killAllOn = v end)
-if infAmmoOn or rapidFireOn then
-    task.spawn(function() pcall(applyGunMods) end)
-    ensureGunModLoop()
-end
-makeToggle(tabFrames["World"], "FOV Changer", function() return fovChangerOn end, function(v)
-    if fovChangerOn and fovChangerSliderFrame and not fovChangerSliderFrame.Visible then
-        fovChangerSliderFrame.Visible = true
-        return
-    end
-    fovChangerOn = v
-    if Camera then Camera.FieldOfView = v and FOV_CHANGER_VAL or 70 end
-    if fovChangerSliderFrame then fovChangerSliderFrame.Visible = v end
-end)
-fovChangerSliderFrame = makeSlider(tabFrames["World"], "FOV", 70, 120, function() return FOV_CHANGER_VAL end, function(v)
-    FOV_CHANGER_VAL = math.floor(v)
-    if fovChangerOn and Camera then Camera.FieldOfView = FOV_CHANGER_VAL end
-end, function(v) return tostring(math.floor(v)) end)
-fovChangerSliderFrame.Visible = fovChangerOn
-makeToggle(tabFrames["World"], "Fullbright", function() return fullbrightOn end, function(v) setFullbright(v) end)
-makeToggle(tabFrames["ESP"], "ESP", function() return espOn end, function(v)
+makeToggle(tabFrames["Combat"], "Triggerbot", function() return triggerOn end, function(v) triggerOn = v end)
+makeToggle(tabFrames["Combat"], "Hitbox", function() return hitboxOn end, function(v) setHitbox(v) end)
+makeToggle(tabFrames["Combat"], "Auto Switch", function() return autoSwitchOn end, function(v) autoSwitchOn = v end)
+makeButton(tabFrames["Combat"], "Tele Sau Lung", teleBehind)
+makeButton(tabFrames["Combat"], "Ve Spawn", teleToSpawn)
+makeToggle(tabFrames["Visual"], "ESP", function() return espOn end, function(v)
     espOn = v
     if not v then
         for player, _ in pairs(espDrawings) do
@@ -1250,7 +976,7 @@ makeToggle(tabFrames["ESP"], "ESP", function() return espOn end, function(v)
         end
     end
 end)
-makeToggle(tabFrames["ESP"], "FOV Circle", function() return fovOn end, function(v)
+makeToggle(tabFrames["Visual"], "FOV Circle", function() return fovOn end, function(v)
     if fovOn and fovSliderFrame and not fovSliderFrame.Visible then
         fovSliderFrame.Visible = true
         return
@@ -1259,29 +985,19 @@ makeToggle(tabFrames["ESP"], "FOV Circle", function() return fovOn end, function
     if fovCircle then fovCircle.Visible = v and not circleHidden end
     if fovSliderFrame then fovSliderFrame.Visible = v end
 end)
-fovSliderFrame = makeSlider(tabFrames["ESP"], "FOV", 50, 1000, function() return FOV_RADIUS end, function(v)
+fovSliderFrame = makeSlider(tabFrames["Visual"], "FOV", 50, 1000, function() return FOV_RADIUS end, function(v)
     FOV_RADIUS = math.floor(v)
     if fovCircle then fovCircle.Radius = FOV_RADIUS end
 end, function(v) return tostring(math.floor(v)) end)
 fovSliderFrame.Visible = fovOn
-makeToggle(tabFrames["ESP"], "Radar", function() return radarOn end, function(v) radarOn = v end)
-makeToggle(tabFrames["ESP"], "An Vong", function() return circleHidden end, function(v)
+makeToggle(tabFrames["Visual"], "Radar", function() return radarOn end, function(v) radarOn = v end)
+makeToggle(tabFrames["Visual"], "An Vong", function() return circleHidden end, function(v)
     circleHidden = v
     if fovCircle then fovCircle.Visible = fovOn and not v end
 end)
-makeToggle(tabFrames["ESP"], "Skeleton", function() return skeletonOn end, function(v) skeletonOn = v end)
-makeToggle(tabFrames["ESP"], "Distance", function() return distanceOn end, function(v) distanceOn = v end)
-makeToggle(tabFrames["ESP"], "Chams", function() return chamsOn end, function(v)
-    chamsOn = v
-    if not v then
-        for player, h in pairs(chamsMap) do h:Destroy() end
-        chamsMap = {}
-    end
-end)
-makeToggle(tabFrames["Visuals"], "Crosshair", function() return crosshairOn end, function(v) crosshairOn = v end)
-makeToggle(tabFrames["Character"], "Fly", function() return flyOn end, function(v) setFly(v) end)
-makeToggle(tabFrames["Character"], "Noclip", function() return noclipOn end, function(v) setNoclip(v) end)
-makeToggle(tabFrames["Character"], "Speed", function() return speedOn end, function(v)
+makeToggle(tabFrames["Di Chuyen"], "Fly", function() return flyOn end, function(v) setFly(v) end)
+makeToggle(tabFrames["Di Chuyen"], "Noclip", function() return noclipOn end, function(v) setNoclip(v) end)
+makeToggle(tabFrames["Di Chuyen"], "Speed", function() return speedOn end, function(v)
     if speedOn and speedSliderFrame and not speedSliderFrame.Visible then
         speedSliderFrame.Visible = true
         return
@@ -1289,9 +1005,9 @@ makeToggle(tabFrames["Character"], "Speed", function() return speedOn end, funct
     setSpeed(v)
     if speedSliderFrame then speedSliderFrame.Visible = v end
 end)
-speedSliderFrame = makeSlider(tabFrames["Character"], "Toc Do", 16, 200, function() return SPEED_VAL end, function(v) SPEED_VAL = math.floor(v) end, function(v) return tostring(math.floor(v)) end)
+speedSliderFrame = makeSlider(tabFrames["Di Chuyen"], "Toc Do", 16, 200, function() return SPEED_VAL end, function(v) SPEED_VAL = math.floor(v) end, function(v) return tostring(math.floor(v)) end)
 speedSliderFrame.Visible = speedOn
-makeToggle(tabFrames["Character"], "Jump", function() return jumpOn end, function(v)
+makeToggle(tabFrames["Di Chuyen"], "Jump", function() return jumpOn end, function(v)
     if jumpOn and jumpSliderFrame and not jumpSliderFrame.Visible then
         jumpSliderFrame.Visible = true
         return
@@ -1299,20 +1015,10 @@ makeToggle(tabFrames["Character"], "Jump", function() return jumpOn end, functio
     setJump(v)
     if jumpSliderFrame then jumpSliderFrame.Visible = v end
 end)
-jumpSliderFrame = makeSlider(tabFrames["Character"], "Nhay Cao", 50, 300, function() return JUMP_VAL end, function(v) JUMP_VAL = math.floor(v) end, function(v) return tostring(math.floor(v)) end)
+jumpSliderFrame = makeSlider(tabFrames["Di Chuyen"], "Nhay Cao", 50, 300, function() return JUMP_VAL end, function(v) JUMP_VAL = math.floor(v) end, function(v) return tostring(math.floor(v)) end)
 jumpSliderFrame.Visible = jumpOn
-makeToggle(tabFrames["Misc"], "Auto Farm", function() return autoFarmOn end, function(v)
-    autoFarmOn = v
-    if v then ensureFarmLoop() end
-end)
-if autoFarmOn then
-    ensureFarmLoop()
-end
-makeButton(tabFrames["Misc"], "Tele Sau Lung", teleBehind)
-makeButton(tabFrames["Misc"], "Ve Spawn", teleToSpawn)
 makeToggle(tabFrames["Setting"], "Fix Lag", function() return fixLagOn end, function(v) setFixLag(v) end)
 makeToggle(tabFrames["Setting"], "Cau Vong", function() return rainbowOn end, function(v) rainbowOn = v end)
-makeButton(tabFrames["Setting"], "Reload (F1)", reloadScript)
 local function setMenuVisible(open)
     menuOpen = open
     menuGui.Enabled = open
@@ -1346,17 +1052,8 @@ UserInputService.InputChanged:Connect(function(input)
         mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-local footLabel = Instance.new("TextLabel")
-footLabel.Size = UDim2.new(1, -20, 0, 20)
-footLabel.Position = UDim2.new(0, 10, 0, 326)
-footLabel.BackgroundTransparency = 1
-footLabel.Text = "F8 Menu  -  F1 Reload  -  Z Tele Sau Lung  -  P Ve Spawn"
-footLabel.TextColor3 = Color3.fromRGB(150, 150, 160)
-footLabel.Font = Enum.Font.GothamBold
-footLabel.TextSize = 12
-footLabel.Parent = mainFrame
-showTab("Main")
-rainbowHue = 0
+showTab("Combat")
+local rainbowHue = 0
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -1412,24 +1109,13 @@ UserInputService.JumpRequest:Connect(function()
 end)
 pcall(function() RunService:UnbindFromRenderStep("PGBAim") end)
 RunService:BindToRenderStep("PGBAim", 300, function()
-    local killActive = killAllOn or autoFarmOn
-    local target = nil
-    local snap = false
-    if killActive then
-        target = killTarget
-        snap = true
-    elseif aimbotOn then
-        target = currentTarget
-    end
+    if not aimbotOn then return end
+    local target = currentTarget
     if not target then return end
     local cam = Workspace.CurrentCamera
     if not cam then return end
     local newCf = CFrame.lookAt(cam.CFrame.Position, target.Position)
-    if snap then
-        cam.CFrame = newCf
-    else
-        cam.CFrame = cam.CFrame:Lerp(newCf, AIM_SMOOTH)
-    end
+    cam.CFrame = cam.CFrame:Lerp(newCf, AIM_SMOOTH)
 end)
 RunService.RenderStepped:Connect(function()
     Camera = Workspace.CurrentCamera or Camera
@@ -1448,21 +1134,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    if fovChangerOn then Camera.FieldOfView = FOV_CHANGER_VAL end
-    if crosshairOn then
-        local c = Color3.fromHSV(rainbowHue, 0.8, 1)
-        crossLines[1].From = Vector2.new(center.X - 18, center.Y)
-        crossLines[1].To = Vector2.new(center.X - 8, center.Y)
-        crossLines[2].From = Vector2.new(center.X + 8, center.Y)
-        crossLines[2].To = Vector2.new(center.X + 18, center.Y)
-        crossLines[3].From = Vector2.new(center.X, center.Y - 18)
-        crossLines[3].To = Vector2.new(center.X, center.Y - 8)
-        crossLines[4].From = Vector2.new(center.X, center.Y + 8)
-        crossLines[4].To = Vector2.new(center.X, center.Y + 18)
-        for i = 1, 4 do crossLines[i].Color = c crossLines[i].Visible = true end
-    else
-        for i = 1, 4 do crossLines[i].Visible = false end
-    end
     fovCircle.Position = center
     fovCircle.Visible = fovOn and not circleHidden
     fovCircle.Color = Color3.fromHSV(rainbowHue, 0.8, 1)
@@ -1494,27 +1165,6 @@ RunService.RenderStepped:Connect(function()
     if aimbotOn then
         if not isTargetValid(currentTarget) then
             currentTarget = getBestTarget()
-        end
-    end
-    local killActive = killAllOn or autoFarmOn
-    if killActive then
-        if not isKillTargetValid(killTarget) then
-            killTarget = getKillAllTarget()
-        end
-        if killTarget then
-            lastEnemySeen = os.clock()
-        end
-    end
-    if aimbotOn and currentTarget then
-        lastEnemySeen = os.clock()
-    end
-    if killActive and killTarget then
-        local pos, onScreen = Camera:WorldToViewportPoint(killTarget.Position)
-        if onScreen and (Vector2.new(pos.X, pos.Y) - center).Magnitude < 50 then
-            if os.clock() - lastTriggerClick > 0.12 then
-                lastTriggerClick = os.clock()
-                clickMouse()
-            end
         end
     end
     local myChar = LocalPlayer.Character
@@ -1582,11 +1232,7 @@ RunService.RenderStepped:Connect(function()
                     d.box.Position = Vector2.new(topPos.X - width / 2, topPos.Y)
                     d.box.Color = Color3.fromHSV(rainbowHue, 0.8, 1)
                     d.box.Visible = true
-                    if distanceOn and myRoot and root then
-                        d.nameTag.Text = player.Name .. " [" .. math.floor((root.Position - myRoot.Position).Magnitude) .. "m]"
-                    else
-                        d.nameTag.Text = player.Name
-                    end
+                    d.nameTag.Text = player.Name
                     d.nameTag.Position = Vector2.new(topPos.X, topPos.Y - 15)
                     d.nameTag.Visible = true
                     local frac = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
@@ -1601,14 +1247,6 @@ RunService.RenderStepped:Connect(function()
                         d.hpBar.Color = Color3.fromRGB(255, 0, 0)
                     end
                     d.hpBar.Visible = true
-                    updateSkeleton(player, char)
-                    if chamsOn then
-                        setChams(player, char, true)
-                        local h = chamsMap[player]
-                        if h then h.FillColor = Color3.fromHSV(rainbowHue, 0.8, 1) end
-                    else
-                        setChams(player, char, false)
-                    end
                 else
                     d.box.Visible = false
                     d.nameTag.Visible = false

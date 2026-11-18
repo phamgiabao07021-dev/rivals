@@ -1254,7 +1254,7 @@ RunService.RenderStepped:Connect(function()
             if myRoot and root then
                 inRange = (root.Position - myRoot.Position).Magnitude <= ESP_MAX_DIST
             end
-            local show = espOn and hum and head and root and hum.Health > 0 and inRange and isEnemyPlayer(player)
+            local show = (espOn or ffaOn) and hum and head and root and hum.Health > 0 and inRange and isEnemyPlayer(player)
             if show then
                 addESP(player)
                 local d = espDrawings[player]

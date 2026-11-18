@@ -729,9 +729,9 @@ menuGui.IgnoreGuiInset = true
 menuGui.DisplayOrder = 10
 menuGui.Parent = playerGui
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 560, 0, 340)
-mainFrame.Position = UDim2.new(0.5, -280, 0.5, -170)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+mainFrame.Size = UDim2.new(0, 600, 0, 360)
+mainFrame.Position = UDim2.new(0.5, -300, 0.5, -180)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = menuGui
 local mainCorner = Instance.new("UICorner")
@@ -781,7 +781,7 @@ tabLayout.Padding = UDim.new(0, 6)
 tabLayout.Parent = tabBar
 local tabFrames = {}
 local tabBtns = {}
-local currentTab = "Combat"
+local currentTab = "Main"
 local activeTabBtn = nil
 local rainbowBtns = {}
 local function showTab(name)
@@ -799,12 +799,12 @@ local function showTab(name)
         end
     end
 end
-local tabOrder = {"Combat", "Visual", "Di Chuyen", "Setting"}
+local tabOrder = {"Main", "World", "ESP", "Visuals", "Character", "Misc", "Setting"}
 for _, tName in ipairs(tabOrder) do
     local tabBtn = Instance.new("TextButton")
-    tabBtn.Size = UDim2.new(0, 130, 0, 36)
+    tabBtn.Size = UDim2.new(0, 76, 0, 36)
     tabBtn.Font = Enum.Font.GothamBold
-    tabBtn.TextSize = 15
+    tabBtn.TextSize = 13
     tabBtn.Text = tName
     tabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
     tabBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
@@ -953,7 +953,7 @@ local fovSliderFrame = nil
 local aimSliderFrame = nil
 local jumpSliderFrame = nil
 local speedSliderFrame = nil
-makeToggle(tabFrames["Combat"], "Aimbot", function() return aimbotOn end, function(v)
+makeToggle(tabFrames["Main"], "Aimbot", function() return aimbotOn end, function(v)
     if aimbotOn and aimSliderFrame and not aimSliderFrame.Visible then
         aimSliderFrame.Visible = true
         return
@@ -961,14 +961,12 @@ makeToggle(tabFrames["Combat"], "Aimbot", function() return aimbotOn end, functi
     aimbotOn = v
     if aimSliderFrame then aimSliderFrame.Visible = v end
 end)
-aimSliderFrame = makeSlider(tabFrames["Combat"], "Aimbot", 0, 100, function() return AIM_SMOOTH * 100 end, function(v) AIM_SMOOTH = v / 100 end, function(v) return math.floor(v) .. "%" end)
+aimSliderFrame = makeSlider(tabFrames["Main"], "Aimbot", 0, 100, function() return AIM_SMOOTH * 100 end, function(v) AIM_SMOOTH = v / 100 end, function(v) return math.floor(v) .. "%" end)
 aimSliderFrame.Visible = aimbotOn
-makeToggle(tabFrames["Combat"], "Triggerbot", function() return triggerOn end, function(v) triggerOn = v end)
-makeToggle(tabFrames["Combat"], "Hitbox", function() return hitboxOn end, function(v) setHitbox(v) end)
-makeToggle(tabFrames["Combat"], "Auto Switch", function() return autoSwitchOn end, function(v) autoSwitchOn = v end)
-makeButton(tabFrames["Combat"], "Tele Sau Lung", teleBehind)
-makeButton(tabFrames["Combat"], "Ve Spawn", teleToSpawn)
-makeToggle(tabFrames["Visual"], "ESP", function() return espOn end, function(v)
+makeToggle(tabFrames["Main"], "Triggerbot", function() return triggerOn end, function(v) triggerOn = v end)
+makeToggle(tabFrames["Main"], "Hitbox", function() return hitboxOn end, function(v) setHitbox(v) end)
+makeToggle(tabFrames["Main"], "Auto Switch", function() return autoSwitchOn end, function(v) autoSwitchOn = v end)
+makeToggle(tabFrames["ESP"], "ESP", function() return espOn end, function(v)
     espOn = v
     if not v then
         for player, _ in pairs(espDrawings) do
@@ -976,7 +974,7 @@ makeToggle(tabFrames["Visual"], "ESP", function() return espOn end, function(v)
         end
     end
 end)
-makeToggle(tabFrames["Visual"], "FOV Circle", function() return fovOn end, function(v)
+makeToggle(tabFrames["Visuals"], "FOV Circle", function() return fovOn end, function(v)
     if fovOn and fovSliderFrame and not fovSliderFrame.Visible then
         fovSliderFrame.Visible = true
         return
@@ -985,19 +983,19 @@ makeToggle(tabFrames["Visual"], "FOV Circle", function() return fovOn end, funct
     if fovCircle then fovCircle.Visible = v and not circleHidden end
     if fovSliderFrame then fovSliderFrame.Visible = v end
 end)
-fovSliderFrame = makeSlider(tabFrames["Visual"], "FOV", 50, 1000, function() return FOV_RADIUS end, function(v)
+fovSliderFrame = makeSlider(tabFrames["Visuals"], "FOV", 50, 1000, function() return FOV_RADIUS end, function(v)
     FOV_RADIUS = math.floor(v)
     if fovCircle then fovCircle.Radius = FOV_RADIUS end
 end, function(v) return tostring(math.floor(v)) end)
 fovSliderFrame.Visible = fovOn
-makeToggle(tabFrames["Visual"], "Radar", function() return radarOn end, function(v) radarOn = v end)
-makeToggle(tabFrames["Visual"], "An Vong", function() return circleHidden end, function(v)
+makeToggle(tabFrames["Visuals"], "Radar", function() return radarOn end, function(v) radarOn = v end)
+makeToggle(tabFrames["ESP"], "An Vong", function() return circleHidden end, function(v)
     circleHidden = v
     if fovCircle then fovCircle.Visible = fovOn and not v end
 end)
-makeToggle(tabFrames["Di Chuyen"], "Fly", function() return flyOn end, function(v) setFly(v) end)
-makeToggle(tabFrames["Di Chuyen"], "Noclip", function() return noclipOn end, function(v) setNoclip(v) end)
-makeToggle(tabFrames["Di Chuyen"], "Speed", function() return speedOn end, function(v)
+makeToggle(tabFrames["Character"], "Fly", function() return flyOn end, function(v) setFly(v) end)
+makeToggle(tabFrames["Character"], "Noclip", function() return noclipOn end, function(v) setNoclip(v) end)
+makeToggle(tabFrames["Character"], "Speed", function() return speedOn end, function(v)
     if speedOn and speedSliderFrame and not speedSliderFrame.Visible then
         speedSliderFrame.Visible = true
         return
@@ -1005,9 +1003,9 @@ makeToggle(tabFrames["Di Chuyen"], "Speed", function() return speedOn end, funct
     setSpeed(v)
     if speedSliderFrame then speedSliderFrame.Visible = v end
 end)
-speedSliderFrame = makeSlider(tabFrames["Di Chuyen"], "Toc Do", 16, 200, function() return SPEED_VAL end, function(v) SPEED_VAL = math.floor(v) end, function(v) return tostring(math.floor(v)) end)
+speedSliderFrame = makeSlider(tabFrames["Character"], "Toc Do", 16, 200, function() return SPEED_VAL end, function(v) SPEED_VAL = math.floor(v) end, function(v) return tostring(math.floor(v)) end)
 speedSliderFrame.Visible = speedOn
-makeToggle(tabFrames["Di Chuyen"], "Jump", function() return jumpOn end, function(v)
+makeToggle(tabFrames["Character"], "Jump", function() return jumpOn end, function(v)
     if jumpOn and jumpSliderFrame and not jumpSliderFrame.Visible then
         jumpSliderFrame.Visible = true
         return
@@ -1015,10 +1013,13 @@ makeToggle(tabFrames["Di Chuyen"], "Jump", function() return jumpOn end, functio
     setJump(v)
     if jumpSliderFrame then jumpSliderFrame.Visible = v end
 end)
-jumpSliderFrame = makeSlider(tabFrames["Di Chuyen"], "Nhay Cao", 50, 300, function() return JUMP_VAL end, function(v) JUMP_VAL = math.floor(v) end, function(v) return tostring(math.floor(v)) end)
+jumpSliderFrame = makeSlider(tabFrames["Character"], "Nhay Cao", 50, 300, function() return JUMP_VAL end, function(v) JUMP_VAL = math.floor(v) end, function(v) return tostring(math.floor(v)) end)
 jumpSliderFrame.Visible = jumpOn
-makeToggle(tabFrames["Setting"], "Fix Lag", function() return fixLagOn end, function(v) setFixLag(v) end)
+makeToggle(tabFrames["World"], "Fix Lag", function() return fixLagOn end, function(v) setFixLag(v) end)
 makeToggle(tabFrames["Setting"], "Cau Vong", function() return rainbowOn end, function(v) rainbowOn = v end)
+makeButton(tabFrames["Misc"], "Tele Sau Lung", teleBehind)
+makeButton(tabFrames["Misc"], "Ve Spawn", teleToSpawn)
+makeButton(tabFrames["Setting"], "Reload (F1)", reloadScript)
 local function setMenuVisible(open)
     menuOpen = open
     menuGui.Enabled = open
@@ -1052,7 +1053,7 @@ UserInputService.InputChanged:Connect(function(input)
         mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-showTab("Combat")
+showTab("Main")
 local rainbowHue = 0
 task.spawn(function()
     while true do

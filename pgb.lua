@@ -24,6 +24,8 @@ local AIM_SMOOTH = 0.7
 local ESP_MAX_DIST = 10000
 local SPAWN_TEAM_DIST = 40
 local espOn = false
+local ffaOn = false
+local ffaRadarOn = false
 local aimbotOn = false
 local noclipOn = false
 local currentTarget = nil
@@ -64,6 +66,8 @@ local function getConfig()
     return {
         aimbot = aimbotOn,
         esp = espOn,
+        ffa = ffaOn,
+        ffaRadar = ffaRadarOn,
         fov = fovOn,
         fly = flyOn,
         noclip = noclipOn,
@@ -98,6 +102,8 @@ local function loadConfig()
     if not ok2 or type(cfg) ~= "table" then return end
     if cfg.aimbot ~= nil then aimbotOn = cfg.aimbot end
     if cfg.esp ~= nil then espOn = cfg.esp end
+    if cfg.ffa ~= nil then ffaOn = cfg.ffa end
+    if cfg.ffaRadar ~= nil then ffaRadarOn = cfg.ffaRadar end
     if cfg.fov ~= nil then fovOn = cfg.fov end
     if cfg.fly ~= nil then flyOn = cfg.fly end
     if cfg.noclip ~= nil then noclipOn = cfg.noclip end
@@ -250,6 +256,23 @@ local function classify(player)
 end
 local function isEnemyPlayer(player)
     if not player then return false end
+    if player == LocalPlayer then return false end
+    if ffaOn then return true end
+    local myTeam = LocalPlayer.Team
+    local theirTeam = player.Team
+    if myTeam and theirTeam then
+        return theirTeam ~= myTeam
+    end
+    local role = spawnRoles[player]
+    if role then
+        return role == "enemy"
+    end
+    return false
+end
+local function isRadarEnemy(player)
+    if not player then return false end
+    if player == LocalPlayer then return false end
+    if ffaRadarOn then return true end
     local myTeam = LocalPlayer.Team
     local theirTeam = player.Team
     if myTeam and theirTeam then
@@ -986,6 +1009,7 @@ makeToggle(tabFrames["Visual"], "ESP", function() return espOn end, function(v)
         end
     end
 end)
+makeToggle(tabFrames["Visual"], "FFA", function() return ffaOn end, function(v) ffaOn = v end)
 makeToggle(tabFrames["Visual"], "FOV Circle", function() return fovOn end, function(v)
     if fovOn and fovSliderFrame and not fovSliderFrame.Visible then
         fovSliderFrame.Visible = true
@@ -1001,6 +1025,7 @@ fovSliderFrame = makeSlider(tabFrames["Visual"], "FOV", 50, 1000, function() ret
 end, function(v) return tostring(math.floor(v)) end)
 fovSliderFrame.Visible = fovOn
 makeToggle(tabFrames["Visual"], "Radar", function() return radarOn end, function(v) radarOn = v end)
+makeToggle(tabFrames["Visual"], "FFA Radar", function() return ffaRadarOn end, function(v) ffaRadarOn = v end)
 makeToggle(tabFrames["Visual"], "An Vong", function() return circleHidden end, function(v)
     circleHidden = v
     if fovCircle then fovCircle.Visible = fovOn and not v end
@@ -1286,7 +1311,7 @@ RunService.RenderStepped:Connect(function()
         local idx = 0
         if myRoot then
             for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and isEnemyPlayer(player) then
+                if player ~= LocalPlayer and isRadarEnemy(player) then
                     local char = player.Character
                     local root = char and char:FindFirstChild("HumanoidRootPart")
                     local hum = char and char:FindFirstChildOfClass("Humanoid")

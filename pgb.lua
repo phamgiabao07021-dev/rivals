@@ -58,6 +58,7 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local lastTriggerClick = 0
 local fixLagOn = false
 local circleHidden = false
+local streamOn = false
 local JUMP_VAL = 120
 local SPEED_VAL = 50
 local rainbowOn = true
@@ -81,6 +82,7 @@ local function getConfig()
         aimSmooth = AIM_SMOOTH,
         fixlag = fixLagOn,
         hidecircle = circleHidden,
+        stream = streamOn,
         jumpval = JUMP_VAL,
         speedval = SPEED_VAL,
         rainbow = rainbowOn,
@@ -120,6 +122,7 @@ local function loadConfig()
     if cfg.aimSmooth ~= nil then AIM_SMOOTH = cfg.aimSmooth end
     if cfg.fixlag ~= nil then fixLagOn = cfg.fixlag end
     if cfg.hidecircle ~= nil then circleHidden = cfg.hidecircle end
+    if cfg.stream ~= nil then streamOn = cfg.stream end
     if cfg.jumpval ~= nil then JUMP_VAL = cfg.jumpval end
     if cfg.speedval ~= nil then SPEED_VAL = cfg.speedval end
     if cfg.rainbow ~= nil then rainbowOn = cfg.rainbow end
@@ -659,7 +662,7 @@ local function reloadScript()
     mateAnchor = nil
     enemyAnchor = nil
     currentTarget = nil
-    if fovCircle then fovCircle.Visible = fovOn and not circleHidden end
+    if fovCircle then fovCircle.Visible = fovOn and not circleHidden and not streamOn end
     local myChar = LocalPlayer.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if myRoot then
@@ -1028,7 +1031,7 @@ makeToggle(tabFrames["Visual"], "Radar", function() return radarOn end, function
 makeToggle(tabFrames["Visual"], "FFA Radar", function() return ffaRadarOn end, function(v) ffaRadarOn = v end)
 makeToggle(tabFrames["Visual"], "An Vong", function() return circleHidden end, function(v)
     circleHidden = v
-    if fovCircle then fovCircle.Visible = fovOn and not v end
+    if fovCircle then fovCircle.Visible = fovOn and not v and not streamOn end
 end)
 makeToggle(tabFrames["Di Chuyen"], "Fly", function() return flyOn end, function(v) setFly(v) end)
 makeToggle(tabFrames["Di Chuyen"], "Noclip", function() return noclipOn end, function(v) setNoclip(v) end)
@@ -1063,6 +1066,14 @@ local function setMenuVisible(open)
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     end
 end
+local function setStreamMode(v)
+    streamOn = v
+    if v then
+        setMenuVisible(false)
+    end
+    saveConfig()
+end
+makeToggle(tabFrames["Setting"], "Stream Mode", function() return streamOn end, function(v) setStreamMode(v) end)
 closeBtn.MouseButton1Click:Connect(function()
     setMenuVisible(false)
 end)
@@ -1124,6 +1135,8 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         setMenuVisible(not menuOpen)
     elseif input.KeyCode == Enum.KeyCode.F1 then
         reloadScript()
+    elseif input.KeyCode == Enum.KeyCode.RightShift then
+        setStreamMode(not streamOn)
     elseif input.KeyCode == Enum.KeyCode.Z then
         teleBehind()
     elseif input.KeyCode == Enum.KeyCode.P then
@@ -1170,7 +1183,7 @@ RunService.RenderStepped:Connect(function()
     end
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     fovCircle.Position = center
-    fovCircle.Visible = fovOn and not circleHidden
+    fovCircle.Visible = fovOn and not circleHidden and not streamOn
     fovCircle.Color = Color3.fromHSV(rainbowHue, 0.8, 1)
     local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if hum then
@@ -1254,7 +1267,7 @@ RunService.RenderStepped:Connect(function()
             if myRoot and root then
                 inRange = (root.Position - myRoot.Position).Magnitude <= ESP_MAX_DIST
             end
-            local show = (espOn or ffaOn) and hum and head and root and hum.Health > 0 and inRange and isEnemyPlayer(player)
+            local show = not streamOn and (espOn or ffaOn) and hum and head and root and hum.Health > 0 and inRange and isEnemyPlayer(player)
             if show then
                 addESP(player)
                 local d = espDrawings[player]
@@ -1297,7 +1310,7 @@ RunService.RenderStepped:Connect(function()
             removeESP(player)
         end
     end
-    if radarOn then
+    if radarOn and not streamOn then
         local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local vs = Camera.ViewportSize
         local rc = Vector2.new(90, vs.Y - 90)

@@ -12,6 +12,13 @@ pcall(function()
     end
 end)
 pcall(function()
+    if getgenv().pgbCrossTris then
+        for _, t in ipairs(getgenv().pgbCrossTris) do
+            pcall(function() t:Remove() end)
+        end
+    end
+end)
+pcall(function()
     local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
     if pg then
         local oldGui = pg:FindFirstChild("Pham Gia Bao")
@@ -50,17 +57,17 @@ fovCircle.Filled = false
 fovCircle.Transparency = 0.7
 fovCircle.Visible = true
 pcall(function() getgenv().pgbFovCircle = fovCircle end)
-local crossDots = {}
-for i = 1, 4 do
-    local q = Drawing.new("Quad")
-    q.Filled = true
-    q.Thickness = 1
-    q.Transparency = 1
-    q.Color = Color3.fromRGB(147, 112, 255)
-    q.Visible = false
-    crossDots[i] = q
+local crossTris = {}
+for i = 1, 8 do
+    local t = Drawing.new("Triangle")
+    t.Filled = true
+    t.Thickness = 1
+    t.Transparency = 1
+    t.Color = Color3.fromRGB(0, 0, 0)
+    t.Visible = false
+    crossTris[i] = t
 end
-pcall(function() getgenv().pgbCrossDots = crossDots end)
+pcall(function() getgenv().pgbCrossTris = crossTris end)
 local fovOn = false
 local speedOn = false
 local jumpOn = false
@@ -1077,7 +1084,7 @@ end)
 makeToggle(tabFrames["Visual"], "Tam Ngam", function() return crosshairOn end, function(v)
     crosshairOn = v
     if not v then
-        for _, q in ipairs(crossDots) do q.Visible = false end
+        for _, t in ipairs(crossTris) do t.Visible = false end
     end
 end)
 makeToggle(tabFrames["Di Chuyen"], "Fly", function() return flyOn end, function(v) setFly(v) end)
@@ -1232,29 +1239,52 @@ RunService.RenderStepped:Connect(function()
     fovCircle.Position = center
     fovCircle.Visible = fovOn and not circleHidden
     fovCircle.Color = Color3.fromHSV(rainbowHue, 0.85, 1)
-    local crossCol = Color3.fromHSV(rainbowHue, 0.85, 1)
-    if aimbotOn and currentTarget and isTargetValid(currentTarget) then
-        crossCol = Color3.fromRGB(255, 60, 60)
+    local crossOnEnemy = false
+    local crossParams = RaycastParams.new()
+    crossParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    crossParams.FilterType = Enum.RaycastFilterType.Exclude
+    local crossHit = Workspace:Raycast(Camera.CFrame.Position, Camera.CFrame.LookVector * 1000, crossParams)
+    if crossHit then
+        local crossChar = crossHit.Instance:FindFirstAncestorOfClass("Model")
+        local crossPlayer = crossChar and Players:GetPlayerFromCharacter(crossChar)
+        if crossPlayer and crossPlayer ~= LocalPlayer and isEnemyPlayer(crossPlayer) then
+            crossOnEnemy = true
+        end
     end
-    local crossGap = 9
-    local crossSize = 5
-    local crossPos = {
-        {center.X, center.Y - crossGap - crossSize},
-        {center.X, center.Y + crossGap + crossSize},
-        {center.X - crossGap - crossSize, center.Y},
-        {center.X + crossGap + crossSize, center.Y},
-    }
+    local crossCol = crossOnEnemy and Color3.fromRGB(220, 0, 0) or Color3.fromRGB(0, 0, 0)
+    local crossGap = 12
+    local crossLen = 14
+    local crossWid = 5
+    local crossAngle = tick() * 2
+    local crossPetals = {}
+    for k = 0, 3 do
+        local a = crossAngle + k * (math.pi / 2)
+        local dx = math.cos(a)
+        local dy = math.sin(a)
+        local px = -dy
+        local py = dx
+        local inner = Vector2.new(center.X + dx * crossGap, center.Y + dy * crossGap)
+        local outer = Vector2.new(center.X + dx * (crossGap + 2 * crossLen), center.Y + dy * (crossGap + 2 * crossLen))
+        local mid = Vector2.new(center.X + dx * (crossGap + crossLen), center.Y + dy * (crossGap + crossLen))
+        local midA = Vector2.new(mid.X + px * crossWid, mid.Y + py * crossWid)
+        local midB = Vector2.new(mid.X - px * crossWid, mid.Y - py * crossWid)
+        crossPetals[k + 1] = {inner, outer, midA, midB}
+    end
     for i = 1, 4 do
-        local q = crossDots[i]
-        if q then
-            local px = crossPos[i][1]
-            local py = crossPos[i][2]
-            q.PointA = Vector2.new(px, py - crossSize)
-            q.PointB = Vector2.new(px + crossSize, py)
-            q.PointC = Vector2.new(px, py + crossSize)
-            q.PointD = Vector2.new(px - crossSize, py)
-            q.Color = crossCol
-            q.Visible = crosshairOn
+        local p = crossPetals[i]
+        local t1 = crossTris[(i - 1) * 2 + 1]
+        local t2 = crossTris[(i - 1) * 2 + 2]
+        if t1 and t2 then
+            t1.PointA = p[1]
+            t1.PointB = p[2]
+            t1.PointC = p[3]
+            t2.PointA = p[1]
+            t2.PointB = p[4]
+            t2.PointC = p[2]
+            t1.Color = crossCol
+            t2.Color = crossCol
+            t1.Visible = crosshairOn
+            t2.Visible = crosshairOn
         end
     end
     local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")

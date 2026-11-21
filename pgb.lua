@@ -5,6 +5,13 @@ pcall(function()
     end
 end)
 pcall(function()
+    if getgenv().pgbCrossDots then
+        for _, q in ipairs(getgenv().pgbCrossDots) do
+            pcall(function() q:Remove() end)
+        end
+    end
+end)
+pcall(function()
     local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
     if pg then
         local oldGui = pg:FindFirstChild("Pham Gia Bao")
@@ -43,6 +50,17 @@ fovCircle.Filled = false
 fovCircle.Transparency = 0.7
 fovCircle.Visible = true
 pcall(function() getgenv().pgbFovCircle = fovCircle end)
+local crossDots = {}
+for i = 1, 4 do
+    local q = Drawing.new("Quad")
+    q.Filled = true
+    q.Thickness = 1
+    q.Transparency = 1
+    q.Color = Color3.fromRGB(147, 112, 255)
+    q.Visible = false
+    crossDots[i] = q
+end
+pcall(function() getgenv().pgbCrossDots = crossDots end)
 local fovOn = false
 local speedOn = false
 local jumpOn = false
@@ -62,6 +80,8 @@ local streamOn = false
 local JUMP_VAL = 120
 local SPEED_VAL = 50
 local rainbowOn = true
+local chamsOn = true
+local crosshairOn = true
 local CONFIG_FILE = "pgb_rivals_config.json"
 local function getConfig()
     return {
@@ -86,6 +106,8 @@ local function getConfig()
         jumpval = JUMP_VAL,
         speedval = SPEED_VAL,
         rainbow = rainbowOn,
+        chams = chamsOn,
+        crosshair = crosshairOn,
     }
 end
 local function saveConfig()
@@ -126,6 +148,8 @@ local function loadConfig()
     if cfg.jumpval ~= nil then JUMP_VAL = cfg.jumpval end
     if cfg.speedval ~= nil then SPEED_VAL = cfg.speedval end
     if cfg.rainbow ~= nil then rainbowOn = cfg.rainbow end
+    if cfg.chams ~= nil then chamsOn = cfg.chams end
+    if cfg.crosshair ~= nil then crosshairOn = cfg.crosshair end
 end
 loadConfig()
 local radarBg = Drawing.new("Circle")
@@ -653,16 +677,29 @@ local function removeESP(player)
     d.hpBar:Remove()
     espDrawings[player] = nil
 end
+local chamsHighlights = {}
+local function removeChams(player)
+    local hl = chamsHighlights[player]
+    if not hl then return end
+    pcall(function() hl:Destroy() end)
+    chamsHighlights[player] = nil
+end
+local function clearChams()
+    for player, _ in pairs(chamsHighlights) do
+        removeChams(player)
+    end
+end
 local function reloadScript()
     for player, _ in pairs(espDrawings) do
         removeESP(player)
     end
+    clearChams()
     spawnPos = {}
     spawnRoles = {}
     mateAnchor = nil
     enemyAnchor = nil
     currentTarget = nil
-    if fovCircle then fovCircle.Visible = fovOn and not circleHidden and not streamOn end
+    if fovCircle then fovCircle.Visible = fovOn and not circleHidden end
     local myChar = LocalPlayer.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if myRoot then
@@ -774,7 +811,7 @@ local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 16)
 mainCorner.Parent = mainFrame
 local mainStroke = Instance.new("UIStroke")
-mainStroke.Color = Color3.fromRGB(255, 120, 180)
+mainStroke.Color = Color3.fromRGB(147, 112, 255)
 mainStroke.Thickness = 2
 mainStroke.Parent = mainFrame
 local titleLabel = Instance.new("TextLabel")
@@ -788,7 +825,7 @@ titleLabel.Parent = mainFrame
 local accentBar = Instance.new("Frame")
 accentBar.Size = UDim2.new(1, -24, 0, 3)
 accentBar.Position = UDim2.new(0, 12, 0, 50)
-accentBar.BackgroundColor3 = Color3.fromRGB(255, 120, 180)
+accentBar.BackgroundColor3 = Color3.fromRGB(147, 112, 255)
 accentBar.BorderSizePixel = 0
 accentBar.Parent = mainFrame
 local accentCorner = Instance.new("UICorner")
@@ -935,7 +972,7 @@ local function makeSlider(parent, name, minVal, maxVal, getVal, setVal, fmt)
     trackCorner.Parent = track
     local fill = Instance.new("Frame")
     fill.Size = UDim2.new(0, 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(255, 120, 180)
+    fill.BackgroundColor3 = Color3.fromRGB(147, 112, 255)
     fill.BorderSizePixel = 0
     fill.Active = false
     fill.Parent = track
@@ -1031,7 +1068,17 @@ makeToggle(tabFrames["Visual"], "Radar", function() return radarOn end, function
 makeToggle(tabFrames["Visual"], "FFA Radar", function() return ffaRadarOn end, function(v) ffaRadarOn = v end)
 makeToggle(tabFrames["Visual"], "An Vong", function() return circleHidden end, function(v)
     circleHidden = v
-    if fovCircle then fovCircle.Visible = fovOn and not v and not streamOn end
+    if fovCircle then fovCircle.Visible = fovOn and not v end
+end)
+makeToggle(tabFrames["Visual"], "Chams", function() return chamsOn end, function(v)
+    chamsOn = v
+    if not v then clearChams() end
+end)
+makeToggle(tabFrames["Visual"], "Tam Ngam", function() return crosshairOn end, function(v)
+    crosshairOn = v
+    if not v then
+        for _, q in ipairs(crossDots) do q.Visible = false end
+    end
 end)
 makeToggle(tabFrames["Di Chuyen"], "Fly", function() return flyOn end, function(v) setFly(v) end)
 makeToggle(tabFrames["Di Chuyen"], "Noclip", function() return noclipOn end, function(v) setNoclip(v) end)
@@ -1099,13 +1146,13 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 showTab("Combat")
-local rainbowHue = 0
+local rainbowHue = 0.75
 task.spawn(function()
     while true do
         task.wait(0.05)
         if rainbowOn then
-            rainbowHue = (rainbowHue + 0.025) % 1
-            local c = Color3.fromHSV(rainbowHue, 0.8, 1)
+            rainbowHue = 0.75 + 0.09 * math.sin(tick() * 1.5)
+            local c = Color3.fromHSV(rainbowHue, 0.85, 1)
             mainStroke.Color = c
             accentBar.BackgroundColor3 = c
             titleLabel.TextColor3 = c
@@ -1116,11 +1163,11 @@ task.spawn(function()
                 b.BackgroundColor3 = c
             end
         else
-            mainStroke.Color = Color3.fromRGB(255, 120, 180)
-            accentBar.BackgroundColor3 = Color3.fromRGB(255, 120, 180)
+            mainStroke.Color = Color3.fromRGB(147, 112, 255)
+            accentBar.BackgroundColor3 = Color3.fromRGB(147, 112, 255)
             titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
             if activeTabBtn then
-                activeTabBtn.BackgroundColor3 = Color3.fromRGB(255, 120, 180)
+                activeTabBtn.BackgroundColor3 = Color3.fromRGB(147, 112, 255)
             end
             for _, b in ipairs(rainbowBtns) do
                 b.BackgroundColor3 = Color3.fromRGB(150, 100, 255)
@@ -1183,8 +1230,33 @@ RunService.RenderStepped:Connect(function()
     end
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     fovCircle.Position = center
-    fovCircle.Visible = fovOn and not circleHidden and not streamOn
-    fovCircle.Color = Color3.fromHSV(rainbowHue, 0.8, 1)
+    fovCircle.Visible = fovOn and not circleHidden
+    fovCircle.Color = Color3.fromHSV(rainbowHue, 0.85, 1)
+    local crossCol = Color3.fromHSV(rainbowHue, 0.85, 1)
+    if aimbotOn and currentTarget and isTargetValid(currentTarget) then
+        crossCol = Color3.fromRGB(255, 60, 60)
+    end
+    local crossGap = 9
+    local crossSize = 5
+    local crossPos = {
+        {center.X, center.Y - crossGap - crossSize},
+        {center.X, center.Y + crossGap + crossSize},
+        {center.X - crossGap - crossSize, center.Y},
+        {center.X + crossGap + crossSize, center.Y},
+    }
+    for i = 1, 4 do
+        local q = crossDots[i]
+        if q then
+            local px = crossPos[i][1]
+            local py = crossPos[i][2]
+            q.PointA = Vector2.new(px, py - crossSize)
+            q.PointB = Vector2.new(px + crossSize, py)
+            q.PointC = Vector2.new(px, py + crossSize)
+            q.PointD = Vector2.new(px - crossSize, py)
+            q.Color = crossCol
+            q.Visible = crosshairOn
+        end
+    end
     local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if hum then
         if speedOn then hum.WalkSpeed = SPEED_VAL end
@@ -1267,7 +1339,7 @@ RunService.RenderStepped:Connect(function()
             if myRoot and root then
                 inRange = (root.Position - myRoot.Position).Magnitude <= ESP_MAX_DIST
             end
-            local show = not streamOn and (espOn or ffaOn) and hum and head and root and hum.Health > 0 and inRange and isEnemyPlayer(player)
+            local show = (espOn or ffaOn) and hum and head and root and hum.Health > 0 and inRange and isEnemyPlayer(player)
             if show then
                 addESP(player)
                 local d = espDrawings[player]
@@ -1278,7 +1350,7 @@ RunService.RenderStepped:Connect(function()
                     local width = height * 0.6
                     d.box.Size = Vector2.new(width, height)
                     d.box.Position = Vector2.new(topPos.X - width / 2, topPos.Y)
-                    d.box.Color = Color3.fromHSV(rainbowHue, 0.8, 1)
+                    d.box.Color = Color3.fromHSV(rainbowHue, 0.85, 1)
                     d.box.Visible = true
                     d.nameTag.Text = player.Name
                     d.nameTag.Position = Vector2.new(topPos.X, topPos.Y - 15)
@@ -1310,7 +1382,35 @@ RunService.RenderStepped:Connect(function()
             removeESP(player)
         end
     end
-    if radarOn and not streamOn then
+    local themeCol = Color3.fromHSV(rainbowHue, 0.85, 1)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local char = player.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if chamsOn and char and hum and hum.Health > 0 and isEnemyPlayer(player) then
+                local hl = chamsHighlights[player]
+                if not hl or hl.Parent ~= char then
+                    if hl then hl:Destroy() end
+                    hl = Instance.new("Highlight")
+                    hl.FillTransparency = 0.55
+                    hl.OutlineTransparency = 0
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    hl.Parent = char
+                    chamsHighlights[player] = hl
+                end
+                hl.FillColor = themeCol
+                hl.OutlineColor = themeCol
+            else
+                removeChams(player)
+            end
+        end
+    end
+    for player, _ in pairs(chamsHighlights) do
+        if not player.Parent then
+            removeChams(player)
+        end
+    end
+    if radarOn then
         local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local vs = Camera.ViewportSize
         local rc = Vector2.new(90, vs.Y - 90)

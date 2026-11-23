@@ -98,6 +98,8 @@ local rainbowOn = true
 local chamsOn = true
 local crosshairOn = true
 local CONFIG_FILE = "pgb_rivals_config.json"
+local configLoaded = false
+local uiRefreshers = {}
 local function getConfig()
     return {
         aimbot = aimbotOn,
@@ -126,19 +128,27 @@ local function getConfig()
     }
 end
 local function saveConfig()
+    if not configLoaded then return end
     pcall(function()
         writefile(CONFIG_FILE, HttpService:JSONEncode(getConfig()))
     end)
 end
 local function loadConfig()
+    local okFile, exists = pcall(function()
+        return isfile(CONFIG_FILE)
+    end)
+    if okFile and not exists then
+        configLoaded = true
+        return
+    end
     local ok, data = pcall(function()
         return readfile(CONFIG_FILE)
     end)
-    if not ok or not data then return end
+    if not ok or not data then configLoaded = true return end
     local ok2, cfg = pcall(function()
         return HttpService:JSONDecode(data)
     end)
-    if not ok2 or type(cfg) ~= "table" then return end
+    if not ok2 or type(cfg) ~= "table" then configLoaded = true return end
     if cfg.aimbot ~= nil then aimbotOn = cfg.aimbot end
     if cfg.esp ~= nil then espOn = cfg.esp end
     if cfg.ffa ~= nil then ffaOn = cfg.ffa end
@@ -165,6 +175,10 @@ local function loadConfig()
     if cfg.rainbow ~= nil then rainbowOn = cfg.rainbow end
     if cfg.chams ~= nil then chamsOn = cfg.chams end
     if cfg.crosshair ~= nil then crosshairOn = cfg.crosshair end
+    configLoaded = true
+    for _, refresh in ipairs(uiRefreshers) do
+        pcall(refresh)
+    end
 end
 task.spawn(function() pcall(loadConfig) end)
 local radarBg = Drawing.new("Circle")
@@ -809,6 +823,9 @@ local function setFixLag(on)
     saveConfig()
 end
 if fixLagOn then setFixLag(true) end
+task.delay(1, function()
+    if fixLagOn then setFixLag(true) end
+end)
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 local menuGui = Instance.new("ScreenGui")
 menuGui.Name = "PhamGiaBao"
@@ -938,6 +955,7 @@ local function makeToggle(parent, name, getState, setState)
         refresh()
         saveConfig()
     end)
+    table.insert(uiRefreshers, refresh)
     refresh()
 end
 local function makeButton(parent, name, action)
@@ -1034,6 +1052,7 @@ local function makeSlider(parent, name, minVal, maxVal, getVal, setVal, fmt)
             setFromX(input.Position.X)
         end
     end)
+    table.insert(uiRefreshers, refresh)
     refresh()
     return frame
 end

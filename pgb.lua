@@ -23,6 +23,8 @@ pcall(function()
     if pg then
         local oldGui = pg:FindFirstChild("Pham Gia Bao")
         if oldGui then oldGui:Destroy() end
+        local oldBtn = pg:FindFirstChild("Pham Gia Bao Button")
+        if oldBtn then oldBtn:Destroy() end
     end
 end)
 local Players = game:GetService("Players")
@@ -48,25 +50,30 @@ local FLY_SPEED = 50
 local flyBV = nil
 local flyBG = nil
 local spawnRoles = {}
-local fovCircle = Drawing.new("Circle")
-fovCircle.Radius = FOV_RADIUS
-if Camera then fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) end
-fovCircle.Color = Color3.fromRGB(255, 255, 255)
-fovCircle.Thickness = 1
-fovCircle.Filled = false
-fovCircle.Transparency = 0.7
-fovCircle.Visible = true
+local fovCircle = nil
+pcall(function()
+    fovCircle = Drawing.new("Circle")
+    fovCircle.Radius = FOV_RADIUS
+    if Camera then fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2) end
+    fovCircle.Color = Color3.fromRGB(255, 255, 255)
+    fovCircle.Thickness = 1
+    fovCircle.Filled = false
+    fovCircle.Transparency = 0.7
+    fovCircle.Visible = true
+end)
 pcall(function() getgenv().pgbFovCircle = fovCircle end)
 local crossTris = {}
-for i = 1, 8 do
-    local t = Drawing.new("Triangle")
-    t.Filled = true
-    t.Thickness = 1
-    t.Transparency = 1
-    t.Color = Color3.fromRGB(0, 0, 0)
-    t.Visible = false
-    crossTris[i] = t
-end
+pcall(function()
+    for i = 1, 8 do
+        local t = Drawing.new("Triangle")
+        t.Filled = true
+        t.Thickness = 1
+        t.Transparency = 1
+        t.Color = Color3.fromRGB(0, 0, 0)
+        t.Visible = false
+        crossTris[i] = t
+    end
+end)
 pcall(function() getgenv().pgbCrossTris = crossTris end)
 local fovOn = false
 local speedOn = false
@@ -158,7 +165,7 @@ local function loadConfig()
     if cfg.chams ~= nil then chamsOn = cfg.chams end
     if cfg.crosshair ~= nil then crosshairOn = cfg.crosshair end
 end
-loadConfig()
+task.spawn(function() pcall(loadConfig) end)
 local radarBg = Drawing.new("Circle")
 radarBg.Radius = 70
 radarBg.Filled = true
@@ -1114,16 +1121,16 @@ makeToggle(tabFrames["Setting"], "Cau Vong", function() return rainbowOn end, fu
 local function setMenuVisible(open)
     menuOpen = open
     menuGui.Enabled = open
-    if open then
-        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-    else
-        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-    end
+    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 end
+local btnGui = nil
 local function setStreamMode(v)
     streamOn = v
     if v then
         setMenuVisible(false)
+    end
+    if btnGui then
+        btnGui.Enabled = not v
     end
     saveConfig()
 end
@@ -1203,6 +1210,63 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         currentSlot = 2
     end
 end)
+btnGui = Instance.new("ScreenGui")
+btnGui.Name = "Pham Gia Bao Button"
+btnGui.ResetOnSpawn = false
+btnGui.IgnoreGuiInset = true
+btnGui.DisplayOrder = 11
+btnGui.Parent = playerGui
+local floatBtn = Instance.new("TextButton")
+floatBtn.Size = UDim2.new(0, 56, 0, 56)
+floatBtn.Position = UDim2.new(1, -70, 0, 10)
+floatBtn.BackgroundColor3 = Color3.fromRGB(147, 112, 255)
+floatBtn.Text = "Bon"
+floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+floatBtn.TextScaled = true
+floatBtn.Font = Enum.Font.GothamBold
+floatBtn.Parent = btnGui
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 28)
+btnCorner.Parent = floatBtn
+pcall(function()
+    local img = getcustomasset("pgb.jpg")
+    if img then
+        local icon = Instance.new("ImageLabel")
+        icon.Size = UDim2.new(1, 0, 1, 0)
+        icon.BackgroundTransparency = 1
+        icon.Image = img
+        icon.ScaleType = Enum.ScaleType.Crop
+        icon.Parent = floatBtn
+        floatBtn.Text = ""
+    end
+end)
+local btnDragging = false
+local btnDragStart = nil
+local btnStartPos = nil
+floatBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        btnDragging = true
+        btnDragStart = input.Position
+        btnStartPos = floatBtn.Position
+    end
+end)
+floatBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if btnDragging and btnDragStart and (input.Position - btnDragStart).Magnitude < 10 then
+            setMenuVisible(not menuOpen)
+        end
+        btnDragging = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if btnDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - btnDragStart
+        floatBtn.Position = UDim2.new(btnStartPos.X.Scale, btnStartPos.X.Offset + delta.X, btnStartPos.Y.Scale, btnStartPos.Y.Offset + delta.Y)
+    end
+end)
+if streamOn then
+    btnGui.Enabled = false
+end
 UserInputService.JumpRequest:Connect(function()
     if jumpOn then
         local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -1238,9 +1302,11 @@ RunService.RenderStepped:Connect(function()
         end
     end
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    fovCircle.Position = center
-    fovCircle.Visible = fovOn and not circleHidden
-    fovCircle.Color = Color3.fromHSV(rainbowHue, 0.85, 1)
+    if fovCircle then
+        fovCircle.Position = center
+        fovCircle.Visible = fovOn and not circleHidden
+        fovCircle.Color = Color3.fromHSV(rainbowHue, 0.85, 1)
+    end
     local crossOnEnemy = false
     local crossParams = RaycastParams.new()
     crossParams.FilterDescendantsInstances = {LocalPlayer.Character}

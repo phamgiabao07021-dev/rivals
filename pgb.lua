@@ -1,4 +1,3 @@
-Bạn:
 pcall(function()
     if getgenv().pgbFovCircle then
         getgenv().pgbFovCircle.Visible = false

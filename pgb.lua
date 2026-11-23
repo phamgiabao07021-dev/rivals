@@ -91,6 +91,7 @@ local lastTriggerClick = 0
 local fixLagOn = false
 local circleHidden = false
 local streamOn = false
+local iconHidden = false
 local JUMP_VAL = 120
 local SPEED_VAL = 50
 local rainbowOn = true
@@ -1130,11 +1131,17 @@ local function setStreamMode(v)
         setMenuVisible(false)
     end
     if btnGui then
-        btnGui.Enabled = not v
+        btnGui.Enabled = not v and not iconHidden
     end
     saveConfig()
 end
 makeToggle(tabFrames["Setting"], "Stream Mode", function() return streamOn end, function(v) setStreamMode(v) end)
+makeToggle(tabFrames["Setting"], "An Icon", function() return iconHidden end, function(v)
+    iconHidden = v
+    if btnGui then
+        btnGui.Enabled = not v and not streamOn
+    end
+end)
 closeBtn.MouseButton1Click:Connect(function()
     setMenuVisible(false)
 end)
